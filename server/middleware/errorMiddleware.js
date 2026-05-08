@@ -6,26 +6,22 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || 'Internal Server Error';
 
-  // Duplicate field (e.g. email already exists)
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-    message = `${field} already exists.`;
+  // Sequelize unique constraint (duplicate email)
+  if (err.name === 'SequelizeUniqueConstraintError') {
+    message = err.errors[0]?.message || 'Duplicate value entered.';
     statusCode = 409;
   }
 
-  // Invalid MongoDB ObjectId (e.g. /users/not-a-valid-id)
-  if (err.name === 'CastError') {
-    message = 'Resource not found.';
-    statusCode = 404;
+  // Sequelize validation error
+  if (err.name === 'SequelizeValidationError') {
+    const errors = err.errors.map(e => ({ field: e.path, message: e.message }));
+    return res.status(400).json({ success: false, message: 'Validation Error', errors });
   }
 
-  // Mongoose validation errors
-  if (err.name === 'ValidationError') {
-    const errors = Object.values(err.errors).map(e => ({
-      field: e.path,
-      message: e.message,
-    }));
-    return res.status(400).json({ success: false, message: 'Validation Error', errors });
+  // Sequelize connection error
+  if (err.name === 'SequelizeConnectionError') {
+    message = 'Database connection failed.';
+    statusCode = 503;
   }
 
   if (process.env.NODE_ENV === 'development') {

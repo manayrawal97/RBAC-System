@@ -4,22 +4,17 @@ const { sendSuccess, sendError } = require('../utils/apiResponse');
 // ── GET all users ─────────────────────────────────────────────────
 const getUsers = async (req, res, next) => {
   try {
-    let query = {};
+    const where = req.user.userType === 'CLIENT'
+      ? { createdBy: req.user.id }
+      : {};
 
-    // CLIENT only sees users they created
-    if (req.user.userType === 'CLIENT') {
-      query = { createdBy: req.user._id };
-    }
-    // ADMIN sees everyone — empty query = no filter
-
-    const users = await User.find(query)
-      .select('-password -resetPasswordToken -resetPasswordExpire')
-      .populate('createdBy', 'username email userType')
-      .sort({ createdAt: -1 });
+    const users = await User.findAll({
+      where,
+      order: [['createdAt', 'DESC']],
+    });
 
     return sendSuccess(res, 200, 'Users fetched.', {
-      count: users.length,
-      users,
+      count: users.length, users,
     });
   } catch (error) {
     next(error);
@@ -29,15 +24,11 @@ const getUsers = async (req, res, next) => {
 // ── GET single user ───────────────────────────────────────────────
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password -resetPasswordToken -resetPasswordExpire')
-      .populate('createdBy', 'username email userType');
-
+    const user = await User.findByPk(req.params.id);
     if (!user) return sendError(res, 404, 'User not found.');
 
-    // CLIENT can only view their own created users
     if (req.user.userType === 'CLIENT' &&
-      String(user.createdBy?._id || user.createdBy) !== String(req.user._id)
+      user.createdBy !== req.user.id
     ) {
       return sendError(res, 403, 'Access denied.');
     }
@@ -53,32 +44,20 @@ const createUser = async (req, res, next) => {
   try {
     const { username, email, password, userType } = req.body;
 
-    // CLIENT can only create USER role — not CLIENT or ADMIN
     if (req.user.userType === 'CLIENT' && userType && userType !== 'USER') {
       return sendError(res, 403, 'Clients can only create users with role USER.');
     }
 
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ where: { email } });
     if (exists) return sendError(res, 409, 'Email already registered.');
 
     const user = await User.create({
-      username,
-      email,
-      password,
+      username, email, password,
       userType: req.user.userType === 'CLIENT' ? 'USER' : (userType || 'USER'),
-      createdBy: req.user._id, // track who made this user
+      createdBy: req.user.id,
     });
 
-    return sendSuccess(res, 201, 'User created.', {
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        userType: user.userType,
-        createdBy: user.createdBy,
-        createdAt: user.createdAt,
-      },
-    });
+    return sendSuccess(res, 201, 'User created.', { user });
   } catch (error) {
     next(error);
   }
@@ -87,40 +66,31 @@ const createUser = async (req, res, next) => {
 // ── UPDATE user ───────────────────────────────────────────────────
 const updateUser = async (req, res, next) => {
   try {
-    let user = await User.findById(req.params.id);
+    const user = await User.findByPk(req.params.id);
     if (!user) return sendError(res, 404, 'User not found.');
 
-    // CLIENT can only update users they created
-    if (req.user.userType === 'CLIENT' &&
-      String(user.createdBy) !== String(req.user._id)
-    ) {
+    if (req.user.userType === 'CLIENT' && user.createdBy !== req.user.id) {
       return sendError(res, 403, 'You can only update users you created.');
     }
 
-    // Only ADMIN can change roles
     if (req.user.userType === 'CLIENT' && req.body.userType) {
       return sendError(res, 403, 'Clients cannot change user roles.');
     }
 
-    // Check new email isn't already taken
     if (req.body.email && req.body.email !== user.email) {
-      const taken = await User.findOne({ email: req.body.email });
+      const taken = await User.findOne({ where: { email: req.body.email } });
       if (taken) return sendError(res, 409, 'Email already in use.');
     }
 
-    // Whitelist updatable fields
     const allowed = ['username', 'email', 'isActive'];
     if (req.user.userType === 'ADMIN') allowed.push('userType');
+
     const updates = {};
     allowed.forEach(field => {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     });
 
-    user = await User.findByIdAndUpdate(req.params.id, updates, {
-      new: true,
-      runValidators: true,
-    }).select('-password -resetPasswordToken -resetPasswordExpire');
-
+    await user.update(updates);
     return sendSuccess(res, 200, 'User updated.', { user });
   } catch (error) {
     next(error);
@@ -130,22 +100,18 @@ const updateUser = async (req, res, next) => {
 // ── DELETE user ───────────────────────────────────────────────────
 const deleteUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findByPk(req.params.id);
     if (!user) return sendError(res, 404, 'User not found.');
 
-    // Can't delete yourself
-    if (String(user._id) === String(req.user._id)) {
+    if (user.id === req.user.id) {
       return sendError(res, 400, 'You cannot delete your own account.');
     }
 
-    // CLIENT can only delete their own created users
-    if (req.user.userType === 'CLIENT' &&
-      String(user.createdBy) !== String(req.user._id)
-    ) {
+    if (req.user.userType === 'CLIENT' && user.createdBy !== req.user.id) {
       return sendError(res, 403, 'You can only delete users you created.');
     }
 
-    await User.findByIdAndDelete(req.params.id);
+    await user.destroy();
     return sendSuccess(res, 200, 'User deleted.');
   } catch (error) {
     next(error);

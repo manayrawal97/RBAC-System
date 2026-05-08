@@ -1,19 +1,42 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
 
 /**
- * Connect to MongoDB Atlas
- * Called once when server starts
+ * Sequelize instance — connects to MySQL
+ * Used by all models via db.sequelize
  */
+const sequelize = new Sequelize(
+  process.env.DB_NAME,      // database name
+  process.env.DB_USER,      // username (usually 'root' locally)
+  process.env.DB_PASSWORD,  // your MySQL password
+  {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    dialect: 'mysql',
+    logging: false,          // set to console.log to see SQL queries
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+  }
+);
 
+/**
+ * Connect and sync all models to MySQL
+ * alter: true updates table columns if schema changes — safe for dev
+ */
 const connectDB = async () => {
-    try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
-        console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    } catch (error) {
-        console.log(`❌ MongoDB Error: ${error.message}`);
-        process.exit(1); // Stop the server if DB fails
-        // process.exit(1): means "if the database fails to connect, shut the whole server down" — you don't want a server running with no database.
-    }   
+  try {
+    await sequelize.authenticate();
+    console.log('✅ MySQL Connected successfully.');
+
+    await sequelize.sync({ alter: true });
+    console.log('✅ Database tables synced.');
+  } catch (error) {
+    console.error('❌ MySQL Connection Error:', error.message);
+    process.exit(1);
+  }
 };
 
-module.exports = connectDB;
+module.exports = { sequelize, connectDB };

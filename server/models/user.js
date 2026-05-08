@@ -1,82 +1,117 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { sequelize } = require('../config/db');
 
-const userSchema = new mongoose.Schema(
+/**
+ * User model — maps to 'users' table in MySQL
+ * Sequelize auto-creates the table on first run
+ */
+const User = sequelize.define(
+  'User',
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     username: {
-      type: String,
-      required: [true, 'Username is required'],
-      trim: true,
-      minlength: [3, 'Username must be at least 3 characters'],
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      validate: {
+        len: { args: [3, 30], msg: 'Username must be 3–30 characters' },
+        notEmpty: { msg: 'Username is required' },
+      },
     },
     email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,       // MongoDB enforces no duplicate emails
-      lowercase: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: { msg: 'Email already exists.' },
+      validate: {
+        isEmail: { msg: 'Provide a valid email address' },
+        notEmpty: { msg: 'Email is required' },
+      },
     },
     password: {
-      type: String,
-      required: [true, 'Password is required'],
-      minlength: [6, 'Password must be at least 6 characters'],
-      select: false,      // NEVER returned in queries by default
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        len: { args: [6, 255], msg: 'Password must be at least 6 characters' },
+      },
     },
     userType: {
-      type: String,
-      enum: ['ADMIN', 'CLIENT', 'USER'],
-      default: 'USER',
+      type: DataTypes.ENUM('ADMIN', 'CLIENT', 'USER'),
+      defaultValue: 'USER',
+      allowNull: false,
     },
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',        // Reference to whoever created this user
-      default: null,
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+      // References another user's id — self-referential foreign key
+      references: { model: 'Users', key: 'id' },
+      onDelete: 'SET NULL',
     },
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    resetPasswordToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    resetPasswordExpire: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
     isActive: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
-  { timestamps: true }  // Adds createdAt and updatedAt automatically
+  {
+    tableName: 'users',
+    timestamps: true,        // adds createdAt and updatedAt columns
+    defaultScope: {
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpire'] },
+    },
+    scopes: {
+      withPassword: { attributes: {} }, // include all fields including password
+    },
+  }
 );
 
 /**
- * Pre-save hook: hash password before saving to DB
- * Only runs when password field is new or changed
+ * Hook: hash password before creating or updating a user
  */
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(12);       // 12 rounds = strong security
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+const hashPasswordHook = async (user) => {
+  if (user.changed('password')) {
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(user.password, salt);
+  }
+};
+
+User.beforeCreate(hashPasswordHook);
+User.beforeUpdate(hashPasswordHook);
 
 /**
  * Instance method: compare entered password with stored hash
- * Used in login — bcrypt.compare() does the work
  */
-userSchema.methods.matchPassword = async function (enteredPassword) {
+User.prototype.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 /**
- * Instance method: generate a password reset token
- * Returns plain token (to send to user), stores hashed version in DB
+ * Instance method: generate password reset token
  */
-userSchema.methods.generatePasswordResetToken = function () {
+User.prototype.generatePasswordResetToken = function () {
   const crypto = require('crypto');
   const resetToken = crypto.randomBytes(32).toString('hex');
 
-  // Hash before storing — plain token only travels via email
   this.resetPasswordToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
 
-  this.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+  this.resetPasswordExpire = new Date(Date.now() + 3600000); // 1 hour
   return resetToken;
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;
