@@ -10,4 +10,4 @@ const sendError = (res, statusCode = 500, message = "Server Error", errors = nul
     return res.status(statusCode).json(response);
 };
 
-module.export = { sendSuccess, sendError };
+module.exports = { sendSuccess, sendError };

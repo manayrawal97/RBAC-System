@@ -10,6 +10,7 @@ const handleValidation = (req, res, next) => {
             message: e.msg,
         }));
         return sendError(res, 400, 'Validation failed', messages);
+        // return sendError(res, 400, errors.array()[0].msg);
     }
     next();
 };
