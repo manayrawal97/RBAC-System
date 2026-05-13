@@ -39,9 +39,11 @@ const validateForgotPassword = [
 
 // ── Reset password ────────────────────────────────────
 const validateResetPassword = [
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('token').notEmpty().withMessage('Token is required.'),
+    body('newPassword')
+        .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     handleValidation,
-];
+]
 
 // ── Create / Update user ──────────────────────────────
 const validateCreateUser = [

@@ -12,7 +12,7 @@ const { validateRegister, validateLogin, validateForgotPassword, validateResetPa
 router.post('/register', validateRegister, register);
 router.post('/login', validateLogin, login);
 router.post('/forgot-password', validateForgotPassword, forgotPassword);
-router.post('/reset-password/:token', validateResetPassword, resetPassword);
+router.post('/reset-password', validateResetPassword, resetPassword);
 
 // Protected — token required
 router.post('/logout', protect, logout);

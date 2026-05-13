@@ -92,6 +92,10 @@ const forgotPassword = async (req, res, next) => {
 // ── Reset password ────────────────────────────────────────────────
 const resetPassword = async (req, res, next) => {
   try {
+    const { token, newPassword } = req.body   // ← changed from req.params + req.body.password
+
+    if (!token) return sendError(res, 400, 'Reset token is required.')
+
     const hashedToken = crypto
       .createHash('sha256')
       .update(req.params.token)
@@ -107,15 +111,15 @@ const resetPassword = async (req, res, next) => {
 
     if (!user) return sendError(res, 400, 'Invalid or expired reset token.');
 
-    user.password = req.body.password;
+    user.password = newPassword          // hashed by beforeUpdate hook
     user.resetPasswordToken = null;
     user.resetPasswordExpire = null;
     await user.save();
 
-    const token = generateToken(user.id, user.userType);
-    return sendSuccess(res, 200, 'Password reset successful.', { token });
+    const jwtToken = generateToken(user.id, user.userType)
+    return sendSuccess(res, 200, 'Password reset successful.', { token: jwtToken })
   } catch (error) {
-    next(error);
+    next(error)
   }
 };
 

@@ -117,3 +117,80 @@ button { cursor: pointer; border: none; font-family: inherit; }
   .navbar        { padding: 0 1rem; }
   .user-name     { display: none; }
 }
+
+
+/* ── Reset Password page extras ─────────────────────── */
+.reset-success-box {
+  text-align: center;
+  padding: .5rem 0;
+}
+.reset-success-icon {
+  font-size: 2.5rem;
+  margin-bottom: .75rem;
+}
+.reset-success-msg {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: .5rem;
+}
+.reset-success-sub {
+  font-size: .85rem;
+  color: var(--text-secondary);
+}
+
+/* Field-level validation feedback */
+.field-error {
+  font-size: .78rem;
+  color: var(--danger);
+  margin-top: .2rem;
+}
+.field-ok {
+  font-size: .78rem;
+  color: var(--success);
+  margin-top: .2rem;
+}
+.input-error {
+  border-color: var(--danger) !important;
+}
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(220,38,38,.15) !important;
+}
+
+/* Password strength meter */
+.strength-wrap {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: -.25rem;
+}
+.strength-bars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.strength-bar {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  transition: background .2s;
+}
+.strength-label {
+  font-size: .75rem;
+  font-weight: 600;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Button spinner */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin-right: .5rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
