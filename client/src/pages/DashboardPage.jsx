@@ -3,15 +3,17 @@ import { useAuth } from '../context/AuthContext'
 import userService from '../services/userService'
 import UserModal from '../components/UserModal'
 import { ROLE_CONFIG, formatDate } from '../utils/helpers'
+import ProfileModal from '../components/ProfileModal'
 
 const DashboardPage = () => {
   const { user, logoutUser } = useAuth()
-  const [users, setUsers]         = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState('')
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingUser, setEditingUser]   = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
 
   const canManage = user?.userType === 'ADMIN' || user?.userType === 'CLIENT'
 
@@ -32,7 +34,15 @@ const DashboardPage = () => {
 
   const handleModalSuccess = () => { setModalOpen(false); fetchUsers() }
   const openCreate = () => { setEditingUser(null); setModalOpen(true) }
-  const openEdit   = (u)  => { setEditingUser(u);   setModalOpen(true) }
+  const openEdit = (u) => { setEditingUser(u); setModalOpen(true) }
+
+  // ---------------------New------------------
+  const handleProfileSuccess = (updatedUser) => {
+    // Update the user shown in the navbar immediately without a page reload
+    // Force a re-read from localStorage by triggering re-render
+    setProfileModalOpen(false)
+    window.location.reload()  // simplest way to refresh auth context from localStorage
+  }
 
   const handleDelete = async (id) => {
     try {
@@ -60,6 +70,15 @@ const DashboardPage = () => {
           <span className="role-badge" style={{ background: roleCfg.color }}>
             {roleCfg.label}
           </span>
+
+          {/* Edit Profile — visible to ALL roles */}
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setProfileModalOpen(true)}
+          >
+            Edit Profile
+          </button>
+
           <button className="btn btn-outline btn-sm" onClick={logoutUser}>
             Logout
           </button>
@@ -74,9 +93,9 @@ const DashboardPage = () => {
             <h2>Welcome back, {user?.username}! 👋</h2>
             <p>
               Signed in as <strong>{user?.userType}</strong> ·{' '}
-              {user?.userType === 'ADMIN'  && 'Full access to all users.'}
+              {user?.userType === 'ADMIN' && 'Full access to all users.'}
               {user?.userType === 'CLIENT' && 'Manage users you have created.'}
-              {user?.userType === 'USER'   && 'Basic access only.'}
+              {user?.userType === 'USER' && 'Basic access only.'}
             </p>
           </div>
           <div className="welcome-meta">
@@ -97,12 +116,12 @@ const DashboardPage = () => {
         <div className="permissions-card">
           <h3>Your Permissions</h3>
           <div className="permissions-grid">
-            <PermItem label="View Users"       allowed={canManage} />
-            <PermItem label="Create Users"     allowed={canManage} />
-            <PermItem label="Edit Users"       allowed={canManage} />
-            <PermItem label="Delete Users"     allowed={canManage} />
+            <PermItem label="View Users" allowed={canManage} />
+            <PermItem label="Create Users" allowed={canManage} />
+            <PermItem label="Edit Users" allowed={canManage} />
+            <PermItem label="Delete Users" allowed={canManage} />
             <PermItem label="Manage All Users" allowed={user?.userType === 'ADMIN'} />
-            <PermItem label="Create Clients"   allowed={user?.userType === 'ADMIN'} />
+            <PermItem label="Create Clients" allowed={user?.userType === 'ADMIN'} />
           </div>
         </div>
 
@@ -195,6 +214,15 @@ const DashboardPage = () => {
           currentUserRole={user?.userType}
           onClose={() => setModalOpen(false)}
           onSuccess={handleModalSuccess}
+        />
+      )}
+
+{/* ----------------new added------------ */}
+      {profileModalOpen && (
+        <ProfileModal
+          currentUser={user}
+          onClose={() => setProfileModalOpen(false)}
+          onSuccess={handleProfileSuccess}
         />
       )}
     </div>

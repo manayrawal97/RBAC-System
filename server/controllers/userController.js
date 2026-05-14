@@ -97,6 +97,50 @@ const updateUser = async (req, res, next) => {
   }
 };
 
+// ── UPDATE OWN PROFILE — available to ALL authenticated users ─────
+// PUT /api/users/me
+// Users can change username, email, password ONLY for themselves
+// userType is blocked at validation layer AND here as double protection
+const updateMyProfile = async (req, res, next) => {
+  try {
+    // req.user is set by the protect middleware — always the logged-in user
+    const user = await User.scope('withPassword').findByPk(req.user.id)
+
+    if (!user) return sendError(res, 404, 'User not found.')
+
+    const { username, email, password } = req.body
+
+    // Double-check: silently strip userType even if validator missed it
+    // Never allow role escalation through this endpoint
+    if (req.body.userType) {
+      return sendError(res, 403, 'You are not allowed to change your own role.')
+    }
+
+    // Check new email isn't already taken by someone else
+    if (email && email !== user.email) {
+      const taken = await User.findOne({ where: { email } })
+      if (taken) return sendError(res, 409, 'That email is already in use.')
+    }
+
+    // Apply only the fields that were actually sent in the request
+    if (username) user.username = username
+    if (email)    user.email    = email
+    if (password) user.password = password  // bcrypt hook fires on save
+
+    await user.save()
+
+    // Return updated user without sensitive fields
+    const updatedUser = await User.findByPk(user.id)
+
+    return sendSuccess(res, 200, 'Profile updated successfully.', {
+      user: updatedUser,
+    })
+  } catch (error) {
+    next(error)
+  }
+};
+
+
 // ── DELETE user ───────────────────────────────────────────────────
 const deleteUser = async (req, res, next) => {
   try {
@@ -118,4 +162,15 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser };
+
+
+
+module.exports = { 
+  getUsers, 
+  getUserById, 
+  createUser, 
+  updateUser, 
+  updateMyProfile,   // ← add this
+  deleteUser 
+};
+

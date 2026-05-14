@@ -60,6 +60,36 @@ const validateUpdateUser = [
     handleValidation,
 ];
 
+// Add this alongside your existing validators      <-------- New
+
+const validateUpdateProfile = [
+  body('username')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Username must be 3–30 characters.'),
+
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Provide a valid email address.')
+    .normalizeEmail(),
+
+  body('password')
+    .optional()
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters.'),
+
+  // Hard block — prevent any attempt to escalate role via this route
+  body('userType')
+    .not().exists()
+    .withMessage('You cannot change your own role.'),
+
+  handleValidation,
+]
+
+
 module.exports = {
     validateRegister,
     validateLogin,
@@ -67,4 +97,5 @@ module.exports = {
     validateResetPassword,
     validateCreateUser,
     validateUpdateUser,
+    validateUpdateProfile,   // ← new add in this
 };
